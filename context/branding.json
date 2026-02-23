@@ -1,0 +1,115 @@
+{
+  "colorScheme": "dark",
+  "fonts": [
+    {
+      "family": "Heebo",
+      "count": 97
+    },
+    {
+      "family": "OPEN SANS",
+      "count": 94
+    },
+    {
+      "family": "-apple-system",
+      "count": 35
+    },
+    {
+      "family": "BlinkMacSystemFont",
+      "count": 35
+    },
+    {
+      "family": "Segoe UI",
+      "count": 35
+    },
+    {
+      "family": "Roboto",
+      "count": 35
+    },
+    {
+      "family": "Helvetica Neue",
+      "count": 35
+    },
+    {
+      "family": "Arial",
+      "count": 35
+    },
+    {
+      "family": "Noto Sans",
+      "count": 35
+    },
+    {
+      "family": "sans-serif",
+      "count": 35
+    }
+  ],
+  "colors": {
+    "primary": "#F3FAEB",
+    "accent": "#16A34A",
+    "background": "#070707",
+    "textPrimary": "#070707",
+    "link": "#16A34A"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "-apple-system",
+      "heading": "Heebo"
+    },
+    "fontStacks": {
+      "body": [
+        "-apple-system",
+        "BlinkMacSystemFont",
+        "Segoe UI",
+        "Roboto",
+        "Helvetica Neue",
+        "Arial",
+        "Noto Sans",
+        "sans-serif",
+        "Apple Color Emoji",
+        "Segoe UI Emoji",
+        "Segoe UI Symbol",
+        "Noto Color Emoji"
+      ],
+      "heading": ["Heebo", "OPEN SANS"],
+      "paragraph": ["Heebo", "OPEN SANS"]
+    },
+    "fontSizes": {
+      "h1": "67.2px",
+      "h2": "20.8px",
+      "body": "18px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "4px"
+  },
+  "components": {},
+  "images": {
+    "logo": "https://www.agada-c.co.il/wp-content/uploads/2022/05/Untitled-2-1.png",
+    "favicon": "https://www.agada-c.co.il/wp-content/uploads/2022/05/Site-Icon-Transparent.svg",
+    "ogImage": "https://www.agada-c.co.il/wp-content/uploads/2025/08/Social-Preview-1200x630-2.png"
+  },
+  "__framework_hints": ["WordPress 6.9"],
+  "__llm_logo_reasoning": {
+    "selectedIndex": 1,
+    "reasoning": "Strong indicators: header logo linking to homepage, header location, visible, class contains logo, reasonable size. Score: 95 (clear winner by 28 points)",
+    "confidence": 0.9
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": -1,
+      "text": "N/A",
+      "reasoning": "LLM failed"
+    },
+    "secondary": {
+      "index": -1,
+      "text": "N/A",
+      "reasoning": "LLM failed"
+    },
+    "confidence": 0
+  },
+  "confidence": {
+    "buttons": 0,
+    "colors": 0,
+    "overall": 0
+  }
+}
