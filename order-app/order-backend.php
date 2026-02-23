@@ -1,363 +1,249 @@
 /**
- * Shortcode: [order_form]  (unchanged)
+ * ===================================================================
+ * Agada Catering Order Form Handler
+ * ===================================================================
+ * This file contains all the server-side logic for the order form.
+ * It defines configuration constants, creates the WordPress shortcode,
+ * handles the AJAX submission, and generates the email notification.
+ * ===================================================================
  */
-add_shortcode('order_form', function () {
-    $ajax_obj_script  = '<script type="text/javascript">';
-    $ajax_obj_script .= 'const catering_ajax_obj = ' . json_encode([
-        'ajax_url' => admin_url('admin-ajax.php'),
-        'nonce'    => wp_create_nonce('catering_order_nonce'),
-    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    $ajax_obj_script .= ';</script>';
 
-    return $ajax_obj_script . do_shortcode('[wpcode id="2068"]');
-});
 
 /**
- * AJAX handler: decode + send enhanced HTML template, fallback to pretty JSON.
+ * ===================================================================
+ * Configuration
+ * ===================================================================
+ * All main settings are defined here as constants for easy management.
+ * ===================================================================
  */
-function handle_catering_order_ajax() {
-    check_ajax_referer('catering_order_nonce', 'security');
+// The email address where new order notifications will be sent.
+define('AGADA_EMAIL_TO', 'nd2020agada@gmail.com'); // !!! עדכן לכתובת המייל שלך !!!
 
-    $raw = isset($_POST['order_data']) ? wp_unslash($_POST['order_data']) : file_get_contents('php://input');
-    if ($raw === '' || $raw === false) {
-        wp_send_json_error(['message' => 'שגיאה: לא התקבלו נתוני הזמנה.']);
+// The subject line for the notification email.
+define('AGADA_EMAIL_SUBJECT', '🎉 הזמנה חדשה מאגדה');
+
+// The unique identifier for the WordPress Nonce (security token).
+// This value is passed to the JavaScript side.
+define('AGADA_NONCE_ACTION', 'agada_order_security_nonce');
+
+// The unique name for the AJAX action.
+// This is used to hook the PHP function into WordPress's AJAX system.
+define('AGADA_AJAX_ACTION', 'submit_agada_order');
+
+
+/**
+ * ===================================================================
+ * Shortcode: [agada_order_form]
+ * ===================================================================
+ * This shortcode generates the necessary JavaScript variables and then
+ * embeds the main HTML form snippet.
+ * ===================================================================
+ */
+add_shortcode('agada_order_form', function () {
+    // IMPORTANT: Replace '3003' with the actual ID of your HTML/JS snippet in WPCode.
+    $html_form_shortcode_id = '3003'; 
+
+    // Create a JavaScript object with the AJAX URL and the security nonce.
+    $ajax_obj_script  = '<script type="text/javascript">';
+    $ajax_obj_script .= 'const agada_ajax_obj = ' . json_encode([
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce'    => wp_create_nonce(AGADA_NONCE_ACTION),
+    ]);
+    $ajax_obj_script .= ';</script>';
+
+    // Return the script followed by the rendered HTML form.
+    return $ajax_obj_script . do_shortcode('[wpcode id="' . $html_form_shortcode_id . '"]');
+});
+
+
+/**
+ * ===================================================================
+ * AJAX Handler & Hooks
+ * ===================================================================
+ * This is the main function that runs when an order is submitted.
+ * It's connected to WordPress via the hooks at the end.
+ * ===================================================================
+ */
+function handle_agada_order_submission() {
+    // 1. Security Verification: Checks if the nonce is valid.
+    check_ajax_referer(AGADA_NONCE_ACTION, 'security');
+
+    // 2. Data Parsing: Gets and decodes the JSON data from the form.
+    $raw_data = isset($_POST['order_data']) ? wp_unslash($_POST['order_data']) : '';
+    if (empty($raw_data)) {
+        wp_send_json_error(['message' => 'Error: No order data received.']);
     }
 
-    $data = json_decode($raw, true);
-    $is_json = (json_last_error() === JSON_ERROR_NONE);
-
-    $to       = 'nd2020agada@gmail.com'; // projects+agada@webistory.com, nd2020agada@gmail.com
-    $name     = $is_json ? (string)($data['contact']['fullName'] ?? 'לקוח חדש') : 'לקוח חדש';
-    $reply_to = $is_json ? sanitize_email($data['contact']['email'] ?? '') : '';
-    $headersH = [
-        'Content-Type: text/html; charset=UTF-8',
-        'From: אתר קייטרינג אגדה <no-reply@' . parse_url(home_url(), PHP_URL_HOST) . '>',
-        'Reply-To: ' . $name . ' <' . $reply_to . '>',
-    ];
-    $headersT = [
-        'Content-Type: text/plain; charset=UTF-8',
-        'From: אתר קייטרינג אגדה <no-reply@' . parse_url(home_url(), PHP_URL_HOST) . '>',
-        'Reply-To: ' . $name . ' <' . $reply_to . '>',
-    ];
-
-    $subject = 'הזמנה חדשה מהאתר - ' . $name;
-
-    $sent = false;
-    if ($is_json) {
-        try {
-            $html = generate_agada_catering_email_template($data);
-            $sent = wp_mail($to, $subject, $html, $headersH);
-        } catch (\Throwable $e) {
-            // fall back below
-        }
+    $order_data = json_decode($raw_data, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        wp_send_json_error(['message' => 'Error: Invalid JSON format.']);
     }
 
-    if (!$sent) {
-        $pretty = $is_json ? wp_json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) : (string)$raw;
-        $sent = wp_mail($to, $subject, "Raw order payload:\n\n".$pretty, $headersT);
-    }
+    // 3. Send Notifications: Calls helper functions to send emails/webhooks.
+    $email_sent = send_agada_order_email($order_data);
+    // send_agada_webhook($order_data); // Placeholder for future webhook integration.
 
-    $sent ? wp_send_json_success(['message' => 'ההזמנה נשלחה בהצלחה!'])
-          : wp_send_json_error(['message' => 'שליחת המייל נכשלה.']);
+    // 4. Send Response: Informs the client whether the submission was successful.
+    if ($email_sent) {
+        wp_send_json_success(['message' => 'Order sent successfully!']);
+    } else {
+        wp_send_json_error(['message' => 'Failed to send the order email.']);
+    }
+}
+// Hooks the handler function into WordPress's AJAX system for both logged-in and guest users.
+add_action('wp_ajax_nopriv_' . AGADA_AJAX_ACTION, 'handle_agada_order_submission');
+add_action('wp_ajax_' . AGADA_AJAX_ACTION, 'handle_agada_order_submission');
+
+
+/**
+ * ===================================================================
+ * Helper Functions
+ * ===================================================================
+ * These functions are responsible for specific tasks like sending emails.
+ * ===================================================================
+ */
+
+/**
+ * Sends the order confirmation email.
+ */
+function send_agada_order_email(array $data): bool {
+    $customer_name = $data['customer']['name'] ?? 'לקוח חדש';
+    $subject = AGADA_EMAIL_SUBJECT . ' - ' . $customer_name;
+    $headers = ['Content-Type: text/html; charset=UTF-8'];
+
+    try {
+        $html_body = generate_agada_email_html($data);
+        return wp_mail(AGADA_EMAIL_TO, $subject, $html_body, $headers);
+    } catch (\Exception $e) {
+        error_log('Agada Email Template Error: ' . $e->getMessage());
+        $fallback_body = "Failed to generate HTML email. Raw order data:\n\n" . wp_json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        return wp_mail(AGADA_EMAIL_TO, $subject, $fallback_body);
+    }
 }
 
 /**
- * Enhanced Agada Catering Email Template - Modern Design
+ * (Placeholder) Sends the order data to a webhook.
  */
-function generate_agada_catering_email_template(array $data): string {
-    $esc = static function ($v) { return esc_html((string)$v); };
+function send_agada_webhook(array $data) {
+    // Future logic for webhooks (e.g., to a CRM) will go here.
+}
 
-    // Helper functions
-    $format_currency = static function ($amount) {
-        return '₪' . number_format((float)$amount, 0, '.', ',');
-    };
-
-    $format_date = static function ($date) {
-        if (empty($date)) return '';
-        $dt = DateTime::createFromFormat('Y-m-d', $date);
-        return $dt ? $dt->format('d.m.Y') : $date;
-    };
-
-    // Package name mapping
-    $package_names = [
-        'shabbat_full' => 'אגדת השבת המלאה',
-        'shabbat_basic' => 'אגדת השבת הבסיסית',
-        'wedding' => 'חבילת חתונה',
-        'event' => 'חבילת אירוע'
-    ];
-
-    // Extract data
-    $packageId = $data['packageId'] ?? '';
-    $packageName = $package_names[$packageId] ?? $packageId;
-    $quantity = (int)($data['quantity'] ?? 0);
-    $selections = $data['selections'] ?? [];
-    $extraServices = $data['extraServices'] ?? [];
-    $contact = $data['contact'] ?? [];
-    $summary = $data['summary'] ?? '';
-    $totalPrice = $data['totalPrice'] ?? 0;
-
-    // Parse total from summary if not provided
-    if (!$totalPrice && preg_match('/₪([\d,]+)/', $summary, $matches)) {
-        $totalPrice = (int)str_replace(',', '', $matches[1]);
-    }
-
+/**
+ * Generates a well-formatted HTML email from the order data.
+ */
+function generate_agada_email_html(array $data): string {
     ob_start();
     ?>
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>הזמנה חדשה - אגדה קייטרינג</title>
-    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Assistant:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-</head>
-<body style="margin: 0; padding: 0; background-color: #f8f9fa; font-family: 'Heebo', 'Assistant', Arial, sans-serif; direction: rtl; line-height: 1.6;">
-    
-    <!-- Main Container -->
-    <div style="max-width: 800px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-        
-        <!-- Header -->
-        <div style="background: linear-gradient(135deg, #80c047 0%, #6ba838 100%); padding: 30px 40px; text-align: center; color: white;">
-            <h1 style="margin: 0; font-size: 28px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.2);">
-                🍽️ הזמנה חדשה - אגדה קייטרינג
-            </h1>
-            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">
-                הזמנה התקבלה בהצלחה מהאתר
-            </p>
-        </div>
+    <!DOCTYPE html>
+    <html lang="he" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <title>הזמנה חדשה - אגדה קייטרינג</title>
+        <style>
+            body { font-family: 'Arial', sans-serif; direction: rtl; text-align: right; background-color: #f9f9f9; margin: 0; padding: 15px; }
+            .container { background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); max-width: 650px; margin: 0 auto; padding: 30px; border-top: 5px solid #56ab2f; }
+            h1 { color: #56ab2f; font-size: 26px; margin-top: 0; }
+            h2 { font-size: 20px; color: #333; margin-top: 30px; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; }
+            .section { margin-bottom: 20px; }
+            .section p { margin: 8px 0; line-height: 1.7; color: #555; }
+            .section strong { color: #000; }
+            ul { list-style: none; padding-right: 0; }
+            li { margin-bottom: 8px; border-right: 3px solid #a8e063; padding-right: 12px; }
+            .total-section { margin-top: 30px; padding-top: 20px; border-top: 2px solid #f0f0f0; text-align: left; }
+            .total-value { font-size: 24px; font-weight: bold; color: #56ab2f; }
+            pre.whatsapp-summary { white-space: pre-wrap; background-color: #f0f0f0; padding: 15px; border-radius: 5px; font-family: 'Arial', Courier, monospace; text-align: right; direction: rtl; border-left: 3px solid #25d366; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🎉 התקבלה הזמנה חדשה!</h1>
 
-        <!-- Contact Information -->
-        <div style="padding: 30px 40px; border-bottom: 3px solid #f0f0f0;">
-            <h2 style="color: #80c047; font-size: 20px; font-weight: 600; margin: 0 0 20px 0; display: flex; align-items: center;">
-                👤 פרטי הלקוח
-            </h2>
-            
-            <div style="display: table; width: 100%; border-spacing: 0;">
-                <?php if (!empty($contact['fullName'])): ?>
-                <div style="display: table-row;">
-                    <div style="display: table-cell; padding: 8px 15px 8px 0; font-weight: 600; color: #555; width: 120px;">שם מלא:</div>
-                    <div style="display: table-cell; padding: 8px 0; color: #333;"><?php echo $esc($contact['fullName']); ?></div>
-                </div>
-                <?php endif; ?>
-                
-                <?php if (!empty($contact['phone'])): ?>
-                <div style="display: table-row;">
-                    <div style="display: table-cell; padding: 8px 15px 8px 0; font-weight: 600; color: #555; width: 120px;">טלפון:</div>
-                    <div style="display: table-cell; padding: 8px 0; color: #333; direction: ltr; text-align: right;">
-                        <a href="tel:<?php echo $esc($contact['phone']); ?>" style="color: #80c047; text-decoration: none;">
-                            <?php echo $esc($contact['phone']); ?>
-                        </a>
-                    </div>
-                </div>
-                <?php endif; ?>
-                
-                <?php if (!empty($contact['address'])): ?>
-                <div style="display: table-row;">
-                    <div style="display: table-cell; padding: 8px 15px 8px 0; font-weight: 600; color: #555; width: 120px;">כתובת:</div>
-                    <div style="display: table-cell; padding: 8px 0; color: #333;"><?php echo $esc($contact['address']); ?></div>
-                </div>
-                <?php endif; ?>
-                
-                <?php if (!empty($contact['eventDate'])): ?>
-                <div style="display: table-row;">
-                    <div style="display: table-cell; padding: 8px 15px 8px 0; font-weight: 600; color: #555; width: 120px;">תאריך האירוע:</div>
-                    <div style="display: table-cell; padding: 8px 0; color: #333; font-weight: 600;">
-                        📅 <?php echo $esc($format_date($contact['eventDate'])); ?>
-                    </div>
-                </div>
-                <?php endif; ?>
-                
-                <?php if (!empty($contact['notes'])): ?>
-                <div style="display: table-row;">
-                    <div style="display: table-cell; padding: 8px 15px 8px 0; font-weight: 600; color: #555; width: 120px; vertical-align: top;">הערות:</div>
-                    <div style="display: table-cell; padding: 8px 0; color: #333; background: #f8f9fa; padding: 10px; border-radius: 6px; border-right: 3px solid #80c047;">
-                        <?php echo nl2br($esc($contact['notes'])); ?>
-                    </div>
-                </div>
-                <?php endif; ?>
+            <div class="section">
+                <h2>👤 פרטי הלקוח</h2>
+                <p><strong>שם מלא:</strong> <?php echo esc_html($data['customer']['name'] ?? 'לא הוזן'); ?></p>
+                <p><strong>טלפון:</strong> <?php echo esc_html($data['customer']['phone'] ?? 'לא הוזן'); ?></p>
+                <p><strong>תאריך אירוע:</strong> <?php echo esc_html($data['customer']['eventDate'] ?? 'לא הוזן'); ?></p>
+				<p><strong>כתובת:</strong> <?php echo esc_html($data['customer']['address'] ?? 'לא הוזן'); ?></p>
             </div>
-        </div>
 
-        <!-- Order Summary -->
-        <div style="padding: 30px 40px; border-bottom: 3px solid #f0f0f0;">
-            <h2 style="color: #80c047; font-size: 20px; font-weight: 600; margin: 0 0 20px 0; display: flex; align-items: center;">
-                📦 פרטי ההזמנה
-            </h2>
-            
-            <div style="background: linear-gradient(45deg, #f8f9fa, #ffffff); border: 2px solid #e9ecef; border-radius: 12px; padding: 25px; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-                    <div style="flex: 1; min-width: 200px;">
-                        <div style="font-size: 18px; font-weight: 600; color: #333; margin-bottom: 5px;">
-                            <?php echo $esc($packageName); ?>
-                        </div>
-                        <div style="color: #666; font-size: 14px;">חבילה נבחרת</div>
-                    </div>
-                    <div style="text-align: center; min-width: 100px;">
-                        <div style="font-size: 24px; font-weight: 700; color: #80c047;">
-                            <?php echo $esc($quantity); ?>
-                        </div>
-                        <div style="color: #666; font-size: 14px;">מנות</div>
-                    </div>
-                    <?php if ($totalPrice > 0): ?>
-                    <div style="text-align: left; min-width: 120px;">
-                        <div style="font-size: 24px; font-weight: 700; color: #28a745;">
-                            <?php echo $format_currency($totalPrice); ?>
-                        </div>
-                        <div style="color: #666; font-size: 14px;">סה"כ</div>
-                    </div>
-                    <?php endif; ?>
-                </div>
+            <div class="section">
+                <h2>📦 פרטי החבילה</h2>
+                <p><strong>שם החבילה:</strong> <?php echo esc_html($data['summary']['packageName'] ?? 'לא הוזן'); ?></p>
+                <p><strong>כמות מנות:</strong> <?php echo esc_html($data['summary']['peopleCount'] ?? 'לא הוזן'); ?></p>
             </div>
-        </div>
 
-        <!-- Menu Selections -->
-        <?php if (!empty($selections)): ?>
-        <div style="padding: 30px 40px; border-bottom: 3px solid #f0f0f0;">
-            <h2 style="color: #80c047; font-size: 20px; font-weight: 600; margin: 0 0 25px 0;">
-                🍴 בחירות מהתפריט
-            </h2>
-            
-            <?php foreach ($selections as $category => $items): ?>
-                <?php if (!empty($items)): ?>
-                <div style="margin-bottom: 25px; background: #ffffff; border: 1px solid #e9ecef; border-radius: 8px; overflow: hidden;">
-                    <div style="background: #80c047; color: white; padding: 12px 20px; font-weight: 600; font-size: 16px;">
-                        <?php 
-                        $categoryDisplay = explode('_', $category);
-                        echo $esc($categoryDisplay[0]); 
-                        ?>
-                    </div>
-                    <div style="padding: 15px 20px;">
-                        <?php if (is_array($items)): ?>
-                            <ul style="margin: 0; padding: 0; list-style: none;">
-                                <?php foreach ($items as $item): ?>
-                                <li style="padding: 8px 0; border-bottom: 1px solid #f8f9fa; display: flex; align-items: center;">
-                                    <span style="color: #80c047; margin-left: 10px; font-weight: bold;">•</span>
-                                    <span style="color: #333; flex: 1;"><?php echo $esc($item); ?></span>
-                                </li>
-                                <?php endforeach; ?>
-                            </ul>
-                        <?php else: ?>
-                            <div style="color: #333; padding: 8px 0;">
-                                <span style="color: #80c047; margin-left: 10px; font-weight: bold;">•</span>
-                                <?php echo $esc($items); ?>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
-            <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
+            <div class="section">
+                <h2>📋 פירוט ההזמנה</h2>
+                <?php
+                $items_by_meal = [];
+                $extras = [];
+                if (!empty($data['items'])) {
+                    foreach ($data['items'] as $item) {
+                        if ($item['isExtra'] ?? false) {
+                            $extras[] = $item;
+                        } else {
+                            $meal_name = $item['mealName'] ?? 'כללי';
+                            $category_name = $item['categoryName'] ?? 'כללי';
+                            $items_by_meal[$meal_name][$category_name][] = $item['itemName'];
+                        }
+                    }
+                }
 
-        <!-- Extra Services -->
-        <?php if (!empty($extraServices)): ?>
-        <div style="padding: 30px 40px; border-bottom: 3px solid #f0f0f0;">
-            <h2 style="color: #80c047; font-size: 20px; font-weight: 600; margin: 0 0 25px 0;">
-                ⭐ תוספות ושירותים
-            </h2>
-            
-            <?php foreach ($extraServices as $serviceType => $services): ?>
-                <?php if (!empty($services)): ?>
-                <div style="margin-bottom: 20px; background: #f8f9fa; border-radius: 8px; padding: 20px; border-right: 4px solid #80c047;">
-                    <h3 style="color: #555; font-size: 16px; font-weight: 600; margin: 0 0 15px 0;">
-                        <?php 
-                        $serviceLabels = [
-                            'specialSides' => '🥗 תוספות מיוחדות',
-                            'extraPlates' => '🍽️ מנות תוספת',
-                            'desserts' => '🍰 קינוחים',
-                            'eventServices' => '🎉 שירותי אירוע'
-                        ];
-                        echo $serviceLabels[$serviceType] ?? $esc($serviceType);
-                        ?>
-                    </h3>
-                    
-                    <?php if (is_array($services)): ?>
-                        <?php if (isset($services[0]) && !is_array($services[0])): ?>
-                            <!-- Simple array -->
-                            <?php foreach ($services as $service): ?>
-                            <div style="padding: 8px 0; color: #333; border-bottom: 1px dotted #ddd;">
-                                <span style="color: #80c047; margin-left: 8px;">▪</span>
-                                <?php echo $esc($service); ?>
-                            </div>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <!-- Associative array with quantities -->
-                            <?php foreach ($services as $service => $qty): ?>
-                            <div style="padding: 8px 0; color: #333; border-bottom: 1px dotted #ddd; display: flex; justify-content: space-between; align-items: center;">
-                                <span>
-                                    <span style="color: #80c047; margin-left: 8px;">▪</span>
-                                    <?php echo $esc($service); ?>
-                                </span>
-                                <span style="background: #80c047; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600;">
-                                    x<?php echo $esc($qty); ?>
-                                </span>
-                            </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    <?php else: ?>
-                        <div style="padding: 8px 0; color: #333;">
-                            <span style="color: #80c047; margin-left: 8px;">▪</span>
-                            <?php echo $esc($services); ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
-                <?php endif; ?>
-            <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
-
-        <!-- Summary Section -->
-        <?php if (!empty($summary)): ?>
-        <div style="padding: 30px 40px; border-bottom: 3px solid #f0f0f0;">
-            <h2 style="color: #80c047; font-size: 20px; font-weight: 600; margin: 0 0 20px 0;">
-                📄 סיכום ההזמנה
-            </h2>
-            <div style="background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 8px; padding: 20px; white-space: pre-wrap; font-family: 'Heebo', 'Assistant', Arial, sans-serif; line-height: 1.6; color: #333;">
-                <?php echo $esc($summary); ?>
+                foreach ($items_by_meal as $meal_name => $categories) {
+                    echo '<h3>' . esc_html($meal_name) . '</h3>';
+                    foreach ($categories as $category_name => $items) {
+                        echo '<h4>' . esc_html($category_name) . ':</h4>';
+                        echo '<ul>';
+                        foreach ($items as $item_name) {
+                            echo '<li>' . esc_html($item_name) . '</li>';
+                        }
+                        echo '</ul>';
+                    }
+                }
+                ?>
             </div>
-        </div>
-        <?php endif; ?>
+            
+            <?php if (!empty($extras)): ?>
+            <div class="section">
+                <h2>✨ תוספות ופינוקים</h2>
+                <ul>
+                <?php foreach ($extras as $extra_item): ?>
+                    <li><?php echo esc_html($extra_item['itemName']) . ' (כמות: ' . esc_html($extra_item['quantity']) . ')'; ?></li>
+                <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
 
-        <!-- Technical Details (Collapsed) -->
-        <div style="padding: 30px 40px; background: #f8f9fa;">
-            <details style="margin: 0;">
-                <summary style="color: #666; font-size: 14px; cursor: pointer; padding: 10px 0; border-bottom: 1px solid #ddd;">
-                    🔧 פרטים טכניים (לבדיקה)
-                </summary>
-                <div style="margin-top: 15px; background: #1a1a1a; color: #00ff00; padding: 15px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 12px; overflow-x: auto; direction: ltr; text-align: left;">
-                    <pre style="margin: 0; white-space: pre-wrap; word-break: break-all;"><?php
-                        echo esc_html(wp_json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-                    ?></pre>
-                </div>
-            </details>
-        </div>
+            <?php if (!empty($data['customer']['notes'])): ?>
+            <div class="section">
+                <h2>📝 הערות</h2>
+                <p><?php echo nl2br(esc_html($data['customer']['notes'])); ?></p>
+            </div>
+            <?php endif; ?>
 
-        <!-- Footer -->
-        <div style="background: linear-gradient(135deg, #80c047 0%, #6ba838 100%); padding: 25px 40px; text-align: center; color: white;">
-            <p style="margin: 0; font-size: 16px; font-weight: 500;">
-                🌟 אגדה קייטרינג - האירוע שלכם, החלום שלנו
-            </p>
-            <p style="margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;">
-                הזמנה נשלחה אוטומטית מהאתר • <?php echo date('d.m.Y H:i'); ?>
-            </p>
+            <?php if ($data['customer']['wantsQuote'] ?? false): ?>
+            <div class="section">
+                <p><strong>✓ הלקוח מעוניין בהצעת מחיר לניהול אירוע מלא.</strong></p>
+            </div>
+            <?php endif; ?>
+
+            <div class="total-section">
+                <span class="total-value">סה"כ: <?php echo number_format($data['summary']['totalPrice'] ?? 0, 2); ?> ₪</span>
+            </div>
+            
+            <div class="section">
+                <h2>📱 סיכום לשיתוף מהיר (WhatsApp)</h2>
+                <pre class="whatsapp-summary"><?php echo esc_html($data['whatsappSummary'] ?? 'לא התקבל סיכום.'); ?></pre>
+            </div>
+
         </div>
-        
-    </div>
-    
-</body>
-</html>
+    </body>
+    </html>
     <?php
     $html = ob_get_clean();
-    
-    if (!is_string($html) || trim($html) === '') {
-        throw new \RuntimeException('Template rendering failed.');
+    if (!$html) {
+        throw new \Exception('Email template rendering failed.');
     }
-    
     return $html;
 }
 
-/**
- * Hooks (unchanged)
- */
-add_action('wp_ajax_send_catering_order', 'handle_catering_order_ajax');
-add_action('wp_ajax_nopriv_send_catering_order', 'handle_catering_order_ajax');
