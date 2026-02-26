@@ -662,6 +662,24 @@
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const appSettings = {
+        // --- NEW CONFIGURATION SECTION ---
+        config: {
+          orderMinimums: {
+            defaultMinPortions: 30, // הגדרת מינימום מנות רגיל (ברירת מחדל)
+            specialDates: [
+              { date: "2026-03-02", minPortions: 45 }, // תאריכי פורים
+              { date: "2026-03-03", minPortions: 45 }
+            ]
+          },
+          notices: [
+            {
+              text: "🎉 <strong>הזמנות לפורים:</strong> שימו לב כי בתאריכים 02/03 - 03/03 מינימום ההזמנה הוא 45 מנות.",
+              startDate: "", // אם ריק - ההודעה תוצג מידית (מהיום)
+              endDate: "2026-03-03" // ההודעה תעלם אחרי חצות של תאריך זה
+            }
+          ]
+        },
+        // ---------------------------------
         items: {
           item_salad_matbucha: { name: "מטבוחה" },
           item_salad_fried_eggplant: { name: "חציל מטוגן בוינגרט" },
@@ -1117,7 +1135,7 @@
         summary: {
           packageId: null,
           packageName: "",
-          peopleCount: 30,
+          peopleCount: appSettings.config.orderMinimums.defaultMinPortions, // Use dynamic default minimum
           totalPrice: 0,
           createdDate: null,
         },
@@ -1155,6 +1173,43 @@
 
       const sanitizeForId = (str) =>
         str.replace(/[\s()]/g, "-").replace(/--+/g, "-");
+
+      // --- New Helper Functions ---
+      function getActiveNotices() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        return (appSettings.config.notices || []).filter(notice => {
+          let start = new Date(0);
+          if (notice.startDate) {
+            start = new Date(notice.startDate);
+            start.setHours(0, 0, 0, 0);
+          }
+
+          let end = new Date("2099-12-31");
+          if (notice.endDate) {
+            end = new Date(notice.endDate);
+            end.setHours(23, 59, 59, 999);
+          }
+
+          return today >= start && today <= end;
+        });
+      }
+
+      function getRequiredMinPortions() {
+        const minConfig = appSettings.config.orderMinimums;
+        let minAllowed = minConfig.defaultMinPortions;
+
+        // אם המשתמש כבר בחר תאריך, נבדוק אם הוא שייך לתאריכים המיוחדים
+        if (orderObject.customer.eventDate) {
+          const specialDate = minConfig.specialDates.find(d => d.date === orderObject.customer.eventDate);
+          if (specialDate) {
+            minAllowed = specialDate.minPortions;
+          }
+        }
+        return minAllowed;
+      }
+      // -----------------------------
 
       function saveOrder() {
         if (orderObject && orderObject.summary.packageId) {
@@ -1270,6 +1325,22 @@
         const extras = orderObject.items.filter((i) => i.isExtra);
         const basePriceTotal = pkg.basePricePerPerson * orderObject.summary.peopleCount;
 
+        const reqMin = getRequiredMinPortions();
+        let qtyWarningHtml = "";
+        let isSubmitDisabled = false;
+
+        // אזהרה ועצירת הגשה אם הכמות קטנה מהמינימום הנדרש לתאריך הנבחר
+        if (orderObject.summary.peopleCount < reqMin) {
+          qtyWarningHtml = `
+                <div class="p-3 mb-4 text-sm font-semibold rounded-lg" style="background-color: rgba(239, 68, 68, 0.1); color: var(--color-danger); border: 1px solid var(--color-danger);">
+                    שימו לב: לתאריך הנבחר נדרש מינימום של ${reqMin} מנות.
+                </div>
+            `;
+          if (currentScreen === "checkout") {
+            isSubmitDisabled = true; // ננטרל את כפתור השליחה אם הוא מתחת למינימום
+          }
+        }
+
         let extrasHtml = "";
         if (extras.length > 0) {
           extrasHtml = extras.map((item) => {
@@ -1297,7 +1368,7 @@
                             <button class="js-cart-back-orderform w-full mt-2 text-center py-2 rounded-lg btn-secondary">חזור לבחירת חבילה</button>`;
         } else if (currentScreen === "checkout") {
           buttonHtml = `
-                    <button type="button" class="js-cart-submit w-full mt-4 text-white font-bold py-3 px-4 rounded-lg text-lg btn-primary">
+                    <button type="button" class="js-cart-submit w-full mt-4 text-white font-bold py-3 px-4 rounded-lg text-lg btn-primary" ${isSubmitDisabled ? 'disabled' : ''}>
                         <span class="submit-text">שליחת הזמנה</span>
                         <span class="spinner hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></span>
                     </button>
@@ -1305,8 +1376,22 @@
                     `;
         }
 
+        // יצירת מודעות דינאמיות מתחת לעגלה (Notices)
+        const activeNotices = getActiveNotices();
+        let noticesHtml = '';
+        if (activeNotices.length > 0) {
+          noticesHtml = '<div class="space-y-3 mt-6 border-t pt-4" style="border-color: var(--color-border);">';
+          activeNotices.forEach(n => {
+            noticesHtml += `<div class="p-3 text-sm rounded-lg" style="background-color: var(--color-primary-faint); color: var(--color-primary-dark); border: 1px solid var(--color-primary-light);">
+                    ${n.text}
+                </div>`;
+          });
+          noticesHtml += '</div>';
+        }
+
         container.innerHTML = `
                 <h3 class="text-xl font-bold mb-4 pb-2 border-b" style="color: var(--color-text-strong); border-color: var(--color-border);">סיכום ההזמנה</h3>
+                ${qtyWarningHtml}
                 <div class="space-y-3 mb-4 pb-4 border-b" style="border-color: var(--color-border);">
                     <div class="flex justify-between items-start">
                         <div>
@@ -1325,6 +1410,7 @@
                     </div>
                 </div>
                 ${buttonHtml}
+                ${noticesHtml}
                 `;
 
         // Attach listeners to the buttons within the specific container
@@ -1427,8 +1513,18 @@
       }
 
       function renderOrderForm() {
-        const container = screens.orderForm;
         const isPackageSelected = !!orderObject.summary.packageId;
+
+        // תיקון אוטומטי של כמות: במקרה והמשתמש חזר מהקופה אחרי שבחר תאריך מיוחד
+        if (isPackageSelected) {
+          const reqMin = getRequiredMinPortions();
+          if (orderObject.summary.peopleCount < reqMin) {
+            orderObject.summary.peopleCount = reqMin;
+            calculatePrice(); // מתעדכן אוטומטית גם את הסה"כ והעגלה הצידית
+          }
+        }
+
+        const container = screens.orderForm;
         let content = "";
 
         updateLayoutForPackageSelection();
@@ -1525,21 +1621,28 @@
           const pkg = appSettings.packages[orderObject.summary.packageId];
           renderStickyNav(pkg);
 
+          const reqMin = getRequiredMinPortions();
+
           content += `
                     <section id="quantity-section" class="card quantity-selector">
-                        <h3 class="text-lg font-semibold mb-4 text-center" style="color: var(--color-text-strong);">כמה מנות תרצו להזמין? (מינימום 30)</h3>
-                        <div class="flex items-center justify-center gap-4">
-                            <button data-change="10" class="!p-1 h-14 w-14 rounded-full text-2xl font-bold btn-primary flex items-center justify-center">
-                            <svg id="Plus 4" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path fill-rule="evenodd" clip-rule="evenodd" d="M12 5C12.5523 5 13 5.44772 13 6V11H18C18.5523 11 19 11.4477 19 12C19 12.5523 18.5523 13 18 13H13V18C13 18.5523 12.5523 19 12 19C11.4477 19 11 18.5523 11 18V13H6C5.44772 13 5 12.5523 5 12C5 11.4477 5.44772 11 6 11H11V6C11 5.44772 11.4477 5 12 5Z" fill="currentColor"></path>
-</svg>
-                            </button>
-                            <input type="number" id="numberOfPeople" value="${orderObject.summary.peopleCount}" min="30" class="!w-20 mr-3 text-center text-3xl font-bold !border-0 bg-transparent focus:ring-0 flex items-center justify-center" style="color: var(--color-text-strong);">
-                            <button data-change="-10" class="!p-1 h-14 w-14 rounded-full text-2xl font-bold flex items-center justify-center" style="background-color: var(--color-border); color: var(--color-text-muted);">
-                            <svg id="Minus 4" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path fill-rule="evenodd" clip-rule="evenodd" d="M5 12C5 11.4477 5.44772 11 6 11H18C18.5523 11 19 11.4477 19 12C19 12.5523 18.5523 13 18 13H6C5.44772 13 5 12.5523 5 12Z" fill="currentColor"></path>
-</svg>
-                            </button>
+                        <h3 class="text-lg font-semibold mb-4 text-center" style="color: var(--color-text-strong);">כמה מנות תרצו להזמין? (מינימום ${reqMin})</h3>
+                        <div class="flex flex-col items-center justify-center">
+                          <div class="flex items-center justify-center gap-4">
+                              <button data-change="10" class="!p-1 h-14 w-14 rounded-full text-2xl font-bold btn-primary flex items-center justify-center">
+                              <svg id="Plus 4" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M12 5C12.5523 5 13 5.44772 13 6V11H18C18.5523 11 19 11.4477 19 12C19 12.5523 18.5523 13 18 13H13V18C13 18.5523 12.5523 19 12 19C11.4477 19 11 18.5523 11 18V13H6C5.44772 13 5 12.5523 5 12C5 11.4477 5.44772 11 6 11H11V6C11 5.44772 11.4477 5 12 5Z" fill="currentColor"></path>
+  </svg>
+                              </button>
+                              <input type="number" id="numberOfPeople" value="${orderObject.summary.peopleCount}" min="${reqMin}" class="!w-20 mr-3 text-center text-3xl font-bold !border-0 bg-transparent focus:ring-0 flex items-center justify-center" style="color: var(--color-text-strong);">
+                              <button data-change="-10" class="!p-1 h-14 w-14 rounded-full text-2xl font-bold flex items-center justify-center" style="background-color: var(--color-border); color: var(--color-text-muted);">
+                              <svg id="Minus 4" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M5 12C5 11.4477 5.44772 11 6 11H18C18.5523 11 19 11.4477 19 12C19 12.5523 18.5523 13 18 13H6C5.44772 13 5 12.5523 5 12Z" fill="currentColor"></path>
+  </svg>
+                              </button>
+                          </div>
+                          <!-- חיווי שגיאת מינימום מנות -->
+                          <div id="min-qty-warning" class="hidden mt-4 text-sm font-bold bg-red-100 p-2 rounded-lg" style="color: var(--color-danger);">
+                          </div>
                         </div>
                     </section>
                 `;
@@ -1841,6 +1944,14 @@
           return; // Stop submission
         }
 
+        // הגנת שרת צד לקוח: וידוא מינימום לפני שליחה
+        const reqMin = getRequiredMinPortions();
+        if (orderObject.summary.peopleCount < reqMin) {
+          errorEl.textContent = `לתאריך הנבחר נדרש מינימום של ${reqMin} מנות. אנא חזרו למסך הקודם לעדכון הכמות.`;
+          errorEl.classList.remove('hidden');
+          return; // Stop submission
+        }
+
         // const submitBtn = document.getElementById('submit-order-btn'); // This line is no longer needed
         const submitText = submitBtn.querySelector('.submit-text');
         const spinner = submitBtn.querySelector('.spinner');
@@ -1905,13 +2016,37 @@
         }
       }
 
+      // UX Helper functions to display minimum warning
+      function showMinQtyWarning(min) {
+        const warning = document.getElementById("min-qty-warning");
+        if (warning) {
+          warning.textContent = `שימו לב: המינימום להזמנה הוא ${min} מנות.`;
+          warning.classList.remove("hidden");
+          // מסתיר את ההודעה אוטומטית אחרי 3 שניות
+          setTimeout(() => { warning.classList.add("hidden"); }, 3000);
+        }
+      }
+
+      function hideMinQtyWarning() {
+        const warning = document.getElementById("min-qty-warning");
+        if (warning) warning.classList.add("hidden");
+      }
+
       function handleQuantityChange(event) {
         const change = parseInt(event.currentTarget.dataset.change);
         const input = document.getElementById("numberOfPeople");
         if (!input) return;
         let currentValue = parseInt(input.value);
         let newValue = currentValue + change;
-        if (newValue < 30) newValue = 30;
+        const minAllowed = getRequiredMinPortions();
+
+        if (newValue < minAllowed) {
+          newValue = minAllowed;
+          showMinQtyWarning(minAllowed); // Alert the user
+        } else {
+          hideMinQtyWarning();
+        }
+
         input.value = newValue;
         orderObject.summary.peopleCount = newValue;
         calculatePrice();
@@ -1919,10 +2054,16 @@
 
       function handleQuantityInputChange(event) {
         let newValue = parseInt(event.currentTarget.value);
-        if (isNaN(newValue) || newValue < 30) {
-          newValue = 30;
+        const minAllowed = getRequiredMinPortions();
+
+        if (isNaN(newValue) || newValue < minAllowed) {
+          newValue = minAllowed;
           event.currentTarget.value = newValue;
+          showMinQtyWarning(minAllowed); // Alert the user
+        } else {
+          hideMinQtyWarning();
         }
+
         orderObject.summary.peopleCount = newValue;
         calculatePrice();
       }
@@ -2224,6 +2365,9 @@
             otherButton.classList.remove('selected');
             eventDateInput.classList.add('hidden');
           }
+
+          // עדכון העגלה הצידית ברגע שהתאריך משתנה - במידה וצריך לחסום את המשתמש
+          updateSideCart();
         };
 
         dateButtons.forEach(button => {
@@ -2507,6 +2651,14 @@
             if (!orderObject.selections) { // Backwards compatibility for old saved orders
               orderObject.selections = { shabbatMorningChoice: null };
             }
+
+            // הגנת מינימום גם בשחזור הזמנה קודמת לפי התאריך שנבחר בעבר! 
+            const reqMin = getRequiredMinPortions();
+            if (orderObject.summary.peopleCount < reqMin) {
+              orderObject.summary.peopleCount = reqMin;
+              saveOrder();
+            }
+
             resumeModal.classList.add("hidden");
             renderOrderForm();
             navigateTo("orderForm");
