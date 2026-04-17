@@ -79,6 +79,7 @@
       scroll-padding-top: 100px;
       /* <-- This is the property you need to change */
       overflow-x: clip;
+      min-height: 100vh;
 
     }
 
@@ -482,7 +483,7 @@
           <section id="screen-checkout" class="screen">
             <!-- Title removed as per user request to improve alignment and reduce vertical space -->
             <form id="checkout-form" class="p-6 space-y-5 card">
-              <div id="checkout-error" class="hidden p-3 text-center text-sm rounded-lg"
+              <div id="checkout-error" class="hidden p-3 text-center text-md rounded-lg"
                 style="background-color: rgba(239, 68, 68, 0.1); color: var(--color-danger);">
                 אירעה שגיאה. אנא נסה שוב.
               </div>
@@ -583,7 +584,7 @@
               <button id="new-order-btn" class="w-full sm:w-auto text-center mt-4 py-2 rounded-lg btn-secondary">
                 התחל הזמנה חדשה
               </button>
-              <div class="mt-6 p-4 rounded-lg text-right text-sm" style="background-color: var(--color-background)">
+              <div class="mt-6 p-4 rounded-lg text-right text-md" style="background-color: var(--color-background)">
                 <p id="friendly-summary" class="whitespace-pre-wrap break-words text-left" style="text-align: right">
                 </p>
               </div>
@@ -1008,7 +1009,7 @@
             ],
             basePricePerPerson: 48,
             imageUrl:
-              "https://www.agada-c.co.il/wp-content/uploads/2025/08/freepik__the-style-is-candid-image-photography-with-natural__2426.png",
+              "https://www.agada-c.co.il/wp-content/uploads/2026/02/%D7%90%D7%92%D7%93%D7%AA-%D7%94%D7%93%D7%92%D7%99%D7%9D.resized.min_-2048x1365.webp",
             meals: [
               {
                 name: "הארוחה העיקרית",
@@ -1031,7 +1032,7 @@
             ],
             basePricePerPerson: 55,
             imageUrl:
-              "https://www.agada-c.co.il/wp-content/uploads/2025/08/אגדת-הבשרים-תמונה-ראשית.png",
+              "https://www.agada-c.co.il/wp-content/uploads/2026/02/%D7%90%D7%92%D7%93%D7%AA-%D7%94%D7%91%D7%A9%D7%A8%D7%99%D7%9D.resized.min_-2048x1365.webp",
             meals: [
               {
                 name: "הארוחה העיקרית",
@@ -1055,7 +1056,7 @@
             ],
             basePricePerPerson: 70,
             imageUrl:
-              "https://www.agada-c.co.il/wp-content/uploads/2025/08/freepik__enhance__10857-scaled.png",
+              "https://www.agada-c.co.il/wp-content/uploads/2026/02/%D7%94%D7%90%D7%92%D7%93%D7%94-%D7%94%D7%9E%D7%95%D7%A9%D7%9C%D7%9E%D7%AA-%D7%A6%D7%9C%D7%99-%D7%9B%D7%AA%D7%A3-%D7%A7%D7%A6%D7%99%D7%A6%D7%95%D7%AA-%D7%93%D7%92%D7%99%D7%9D-%D7%9E%D7%95%D7%A9%D7%98-%D7%9E%D7%96%D7%A8%D7%97%D7%99.resized.min_-2048x1365.webp",
             meals: [
               {
                 name: "הארוחה העיקרית",
@@ -1079,7 +1080,7 @@
             ],
             basePricePerPerson: 140,
             imageUrl:
-              "https://www.agada-c.co.il/wp-content/uploads/2025/08/freepik__the-style-is-candid-image-photography-with-natural__2425.png",
+              "https://www.agada-c.co.il/wp-content/uploads/2026/02/%D7%9B%D7%A8%D7%A2%D7%99%D7%99%D7%9D-%D7%A2%D7%95%D7%A3-%D7%A6%D7%9C%D7%95%D7%99-%D7%91%D7%92%D7%A8%D7%99%D7%9C-3.resized.min_-2048x1365.webp",
             meals: [
               {
                 name: "סלטים (נבחרים פעם אחת לכל הסעודות)",
@@ -1332,7 +1333,7 @@
         // אזהרה ועצירת הגשה אם הכמות קטנה מהמינימום הנדרש לתאריך הנבחר
         if (orderObject.summary.peopleCount < reqMin) {
           qtyWarningHtml = `
-                <div class="p-3 mb-4 text-sm font-semibold rounded-lg" style="background-color: rgba(239, 68, 68, 0.1); color: var(--color-danger); border: 1px solid var(--color-danger);">
+                <div class="p-3 mb-4 text-md font-semibold rounded-lg" style="background-color: rgba(239, 68, 68, 0.1); color: var(--color-danger); border: 1px solid var(--color-danger);">
                     שימו לב: לתאריך הנבחר נדרש מינימום של ${reqMin} מנות.
                 </div>
             `;
@@ -1355,10 +1356,10 @@
               const totalItemPrice = item.pricePerUnit * item.quantity;
               itemPriceText = `${totalItemPrice.toLocaleString()} ₪`;
             }
-            return `<div class="flex justify-between items-center text-sm"><p>${itemNameText}</p><p class="font-semibold">${itemPriceText}</p></div>`;
+            return `<div class="flex justify-between items-center text-md"><p>${itemNameText}</p><p class="font-semibold">${itemPriceText}</p></div>`;
           }).join("");
         } else {
-          extrasHtml = `<p class="text-sm text-center" style="color: var(--color-text-muted);">לא נוספו תוספות.</p>`;
+          extrasHtml = `<p class="text-md text-center" style="color: var(--color-text-muted);">לא נוספו תוספות.</p>`;
         }
 
         let buttonHtml = "";
@@ -1382,7 +1383,7 @@
         if (activeNotices.length > 0) {
           noticesHtml = '<div class="space-y-3 mt-6 border-t pt-4" style="border-color: var(--color-border);">';
           activeNotices.forEach(n => {
-            noticesHtml += `<div class="p-3 text-sm rounded-lg" style="background-color: var(--color-primary-faint); color: var(--color-primary-dark); border: 1px solid var(--color-primary-light);">
+            noticesHtml += `<div class="p-3 text-md rounded-lg" style="background-color: var(--color-primary-faint); color: var(--color-primary-dark); border: 1px solid var(--color-primary-light);">
                     ${n.text}
                 </div>`;
           });
@@ -1396,7 +1397,7 @@
                     <div class="flex justify-between items-start">
                         <div>
                             <h4 class="text-lg font-bold" style="color: var(--color-text-strong);">${pkg.name}</h4>
-                            <span class="text-sm" style="color: var(--color-text-muted);">מחיר בסיס (${pkg.basePricePerPerson.toLocaleString()} ₪ x ${orderObject.summary.peopleCount})</span>
+                            <span class="text-md" style="color: var(--color-text-muted);">מחיר בסיס (${pkg.basePricePerPerson.toLocaleString()} ₪ x ${orderObject.summary.peopleCount})</span>
                         </div>
                         <span class="text-lg font-bold" style="color: var(--color-text-strong);">${basePriceTotal.toLocaleString()} ₪</span>
                     </div>
@@ -1535,7 +1536,7 @@
           const pkg = appSettings.packages[orderObject.summary.packageId];
           content += `
                     <div class="rounded-lg overflow-hidden card flex flex-col sm:flex-row gap-4 relative p-0 sm:p-4 items-center">
-                        <button id="change-package-btn" class="absolute top-4 left-4 text-sm font-semibold flex items-center p-2 rounded-lg z-10">
+                        <button id="change-package-btn" class="absolute top-4 left-4 text-md font-semibold flex items-center p-2 rounded-lg z-10">
                              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z" />
                              </svg>
@@ -1551,7 +1552,7 @@
                 (item) => `
                                                 <li class="flex items-center gap-3">
                                                     ${checkmarkIcon}
-                                                    <span class="text-sm" style="color: var(--color-text-default);">${item.trim()}</span>
+                                                    <span class="text-md" style="color: var(--color-text-default);">${item.trim()}</span>
                                                 </li>
                                             `
               )
@@ -1590,7 +1591,7 @@
                       (item) => `
                                                 <li class="flex items-center gap-3">
                                                     ${checkmarkIcon}
-                                                    <span class="text-sm" style="color: var(--color-text-default);">${item.trim()}</span>
+                                                    <span class="text-md" style="color: var(--color-text-default);">${item.trim()}</span>
                                                 </li>
                                             `
                     )
@@ -1641,7 +1642,7 @@
                               </button>
                           </div>
                           <!-- חיווי שגיאת מינימום מנות -->
-                          <div id="min-qty-warning" class="hidden mt-4 text-sm font-bold bg-red-100 p-2 rounded-lg" style="color: var(--color-danger);">
+                          <div id="min-qty-warning" class="hidden mt-4 text-md font-bold bg-red-100 p-2 rounded-lg" style="color: var(--color-danger);">
                           </div>
                         </div>
                     </section>
@@ -1661,7 +1662,7 @@
                                 ${meal.options.map(option => `
                                     <div class="choice-card ${currentChoice === option.id ? 'selected' : ''}" data-meal-name="${meal.name}" data-choice-id="${option.id}">
                                         <h5 class="font-bold text-lg" style="color: var(--color-text-strong);">${option.name}</h5>
-                                        <p class="text-sm mt-1" style="color: var(--color-text-muted);">${option.description}</p>
+                                        <p class="text-md mt-1" style="color: var(--color-text-muted);">${option.description}</p>
                                     </div>
                                 `).join('')}
                                 </div>
@@ -1711,7 +1712,7 @@
                                 <div class="p-4 flex justify-between items-center card cursor-pointer per-person-extra ${isSelected ? 'selected' : ''}" data-item-id="${itemId}">
                                     <div>
                                         <p class="font-bold" style="color: var(--color-text-strong);">${item.name}</p>
-                                        <p class="text-lg font-semibold" style="color: var(--color-primary);">+${item.extraCost} ₪ <span class="text-sm font-normal" style="color: var(--color-text-muted);">לאדם</span></p>
+                                        <p class="text-lg font-semibold" style="color: var(--color-primary);">+${item.extraCost} ₪ <span class="text-md font-normal" style="color: var(--color-text-muted);">לאדם</span></p>
                                     </div>
                                     <div class="h-8 w-8 rounded-full flex items-center justify-center text-white" style="background-color: ${isSelected ? 'var(--color-primary)' : 'var(--color-border)'};">
                                         <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
@@ -1826,7 +1827,7 @@
                                 <h4 class="text-lg font-semibold" style="color: var(--color-text-strong);">${category.name
           }</h4>
                                 <div class="flex items-center gap-2">
-                                    <span id="counter-${safeMealName}-${catId}" class="text-sm font-medium px-3 py-1 rounded-full" style="background-color: var(--color-border); color: var(--color-text-muted);">בחירה: 0 / ${category.selectionLimit
+                                    <span id="counter-${safeMealName}-${catId}" class="text-md font-medium px-3 py-1 rounded-full" style="background-color: var(--color-border); color: var(--color-text-muted);">בחירה: 0 / ${category.selectionLimit
           }</span>
                                     <button id="reset-btn-${safeMealName}-${catId}" class="btn-reset hidden" data-meal-name="${meal.name
           }" data-cat-id="${catId}">איפוס</button>
